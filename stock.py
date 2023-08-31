@@ -9,20 +9,17 @@ from datetime import date, timedelta
 The goal of this program is to based on features of the target stock,
 predict if the stock will rise or fall in the next week.
 My choices will be -1, -.5, 0, .5, 1 which represent the magnitude of the rise or fall
-Ideas:
-    Average out the price and volume over the last 7 days and use that as a feature
-
 """
 
 # Get Apple Stock History
 tkr = yf.Ticker('AAPL')
-hist = tkr.history(period="1y")
+hist = tkr.history(period="5y")
 print(f"Columns: {hist.columns}")
 hist = hist.tz_localize(None) # fix weird date format
 
 # Get the start and end date
 end = date.today()
-start = end - timedelta(days=365)
+start = end - timedelta(days=1825)
 
 df = hist
 
@@ -39,7 +36,7 @@ df = df.dropna()
 df = df.resample('W').mean()
 print(f"CLOSE AND VOLUME AVERAGE 7 DAYS: \n{df}")
 
-# Features for the Model
+# Refactor the df to only include engineered features
 df = df[['priceRise', 'volumeRise']]
 
 # Calculate conditions based on the price rise/fall
@@ -51,17 +48,17 @@ conditions = [
     (df['priceRise'].shift(-1) > 0.02)  # 2 percent rise
 ]
 
+# Create a price prediction column based on percent price rise and fall
 choices = [-2, -1, 0, 1, 2]
 df['Pred'] = np.select(conditions, choices, default=0)
 
+# Finalize features and 
 features = df[['priceRise', 'volumeRise']].to_numpy()
 features = np.around(features, decimals=2)
-target = df['Pred'].to_numpy()
-# print(features) # from this data
-# print(target)   # determine if it will become -1, 0, or 1
+predicted_changes = df['Pred'].to_numpy()
 
 # Train my model
-x_train, y_train, y_train, y_test = train_test_split(features, target, test_size=0.2)
+x_train, y_train, y_train, y_test = train_test_split(features, predicted_changes, test_size=0.2)
 mlClassifier = MLPClassifier(
     hidden_layer_sizes=(100, 100),
     activation='relu',
