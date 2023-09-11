@@ -29,6 +29,9 @@ start = end - timedelta(days=1825)
 hist = hist[['Close', 'Volume']]
 print(f"Columns used: {hist.columns}")
 
+# Save the dataframe to a CSV file
+hist.to_csv('savedData/stock_close_volume_rnn.csv')
+
 # Create a new dataframe that will be used in training
 features = ['priceRise', 'volumeRise']
 df = pd.DataFrame(index=hist.index, columns=features)
@@ -41,10 +44,13 @@ df['volumeRise'] = np.log(hist['Volume'] / hist['Volume'].shift(1))
 df = df[['priceRise', 'volumeRise']]
 
 # Calculate the percent change in price
-df['priceChange'] = df['priceRise'].diff()
+df['priceChange'] = df['priceRise'].diff().shift(-1)
 
 # Remove any NaN 
 df = df.dropna()
+
+# Save the dataframe to a CSV file
+df.to_csv('savedData/stock_normalized_rnn.csv')
 
 # Display the dataframe with features and predictions
 print(f"LENGTH OF DF: {len(df)}")
@@ -79,14 +85,6 @@ for i in range(len(df_combined) - sequence_length + 1):
 X_sequences = np.array(X_sequences)
 y_sequences = np.array(y_sequences)
 
-
-# # X sequence should have a shape of: (batch_size, sequence_length, num_features)
-# print(f"X_sequences shape: {X_sequences.shape}")
-# print(f"X_sequences: {X_sequences}")
-# print(f"y_sequences shape: {y_sequences.shape}")
-# print(f"y_sequences: {y_sequences}")
-# print(f"data types: {X_sequences.dtype}, {y_sequences.dtype}")
-
 # Build an RNN model
 model = Sequential()
 model.add(LSTM(
@@ -98,10 +96,18 @@ model.add(Dense(10, activation='linear'))  # Softmax activation for multiclass c
 model.compile(loss='mean_squared_error', optimizer='adam')  # Use categorical crossentropy for classification
 model.summary()
 
-# Train the model
-model.fit(X_sequences, y_sequences, epochs=5, validation_split=0.2)
+
+# Split data into training (80%) and validation (20%)
+X_train, X_val, y_train, y_val = train_test_split(X_sequences, y_sequences, test_size=0.2, random_state=42)
+
+# Train the model using X_train and y_train, and validate on X_val and y_val
+model.fit(X_train, y_train, epochs=5, validation_data=(X_val, y_val))
 
 # View means squared error
 print(f"Mean Squared Error: {model.evaluate(X_sequences, y_sequences)}")
+print(f"Mean Squared Error on Validation Set: {model.evaluate(X_val, y_val)}")
+
+# Save the model
+model.save('savedModels/stock_rnn.keras')
 
 # Plot the model compared to actual price changes
